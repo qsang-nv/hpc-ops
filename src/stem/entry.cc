@@ -12,6 +12,7 @@
 #include "src/stem/stem_oam_prep_paged_kv_dim128.h"
 #include "src/stem/stem_oam_prep_varlen_q_dim128.h"
 #include "src/stem/stem_tpd.h"
+#include "src/utils/utils.h"
 
 namespace hpc {
 namespace stem {
@@ -73,13 +74,15 @@ std::tuple<torch::Tensor, torch::Tensor> stem_oam_prep_paged_kv_entry(
               " (expected dim_qk=128, dim_v=128)");
 
   if (quant_type == 1) {
-    stem_oam_prep_paged_kv_qpertoken_perhead_kvpertensor_dim128_async(
-        kflat.data_ptr(), vbias.data_ptr(), kcache.const_data_ptr(), vcache.const_data_ptr(),
-        kscale.const_data_ptr(), vscale.const_data_ptr(), kv_indices.const_data_ptr(),
-        kv_seq_lens.const_data_ptr(), num_batch, num_dim_qk, num_dim_v, num_head_kv,
-        num_kvcache_blocks, block_size, num_seq_max_blocks, static_cast<int>(stem_block_size),
-        static_cast<int>(stem_stride), static_cast<float>(lambda_mag), max_num_stem_blocks,
-        max_k_down_len, ldK, ldV, v_norm_down.data_ptr(), stream);
+    HPC_ARCH_DISPATCH(
+        "stem_oam_prep_paged_kv", 90,
+        stem_oam_prep_paged_kv_qpertoken_perhead_kvpertensor_dim128_async(
+            kflat.data_ptr(), vbias.data_ptr(), kcache.const_data_ptr(), vcache.const_data_ptr(),
+            kscale.const_data_ptr(), vscale.const_data_ptr(), kv_indices.const_data_ptr(),
+            kv_seq_lens.const_data_ptr(), num_batch, num_dim_qk, num_dim_v, num_head_kv,
+            num_kvcache_blocks, block_size, num_seq_max_blocks, static_cast<int>(stem_block_size),
+            static_cast<int>(stem_stride), static_cast<float>(lambda_mag), max_num_stem_blocks,
+            max_k_down_len, ldK, ldV, v_norm_down.data_ptr(), stream));
   } else if (quant_type == 0) {
     int ldKS = 0;
     int ldKS1 = 0;
@@ -94,14 +97,16 @@ std::tuple<torch::Tensor, torch::Tensor> stem_oam_prep_paged_kv_entry(
       ldKS2 = kscale.stride(2) / sizeof(float);
     }
     int scale_block_size = static_cast<int>(kscale.size(1));
-    stem_oam_prep_paged_kv_qkpertoken_perhead_vperhead_dim128_async(
-        kflat.data_ptr(), vbias.data_ptr(), kcache.const_data_ptr(), vcache.const_data_ptr(),
-        kscale.const_data_ptr(), vscale.const_data_ptr(), kv_indices.const_data_ptr(),
-        kv_seq_lens.const_data_ptr(), num_batch, num_dim_qk, num_dim_v, num_head_kv,
-        num_kvcache_blocks, block_size, scale_block_size, num_seq_max_blocks,
-        static_cast<int>(stem_block_size), static_cast<int>(stem_stride),
-        static_cast<float>(lambda_mag), max_num_stem_blocks, max_k_down_len, ldK, ldV, ldKS, ldKS1,
-        ldKS2, v_norm_down.data_ptr(), stream);
+    HPC_ARCH_DISPATCH(
+        "stem_oam_prep_paged_kv", 90,
+        stem_oam_prep_paged_kv_qkpertoken_perhead_vperhead_dim128_async(
+            kflat.data_ptr(), vbias.data_ptr(), kcache.const_data_ptr(), vcache.const_data_ptr(),
+            kscale.const_data_ptr(), vscale.const_data_ptr(), kv_indices.const_data_ptr(),
+            kv_seq_lens.const_data_ptr(), num_batch, num_dim_qk, num_dim_v, num_head_kv,
+            num_kvcache_blocks, block_size, scale_block_size, num_seq_max_blocks,
+            static_cast<int>(stem_block_size), static_cast<int>(stem_stride),
+            static_cast<float>(lambda_mag), max_num_stem_blocks, max_k_down_len, ldK, ldV, ldKS,
+            ldKS1, ldKS2, v_norm_down.data_ptr(), stream));
   }
 
   return std::make_tuple(kflat, vbias);
@@ -141,10 +146,12 @@ torch::Tensor stem_oam_prep_varlen_q_entry(const torch::Tensor &q_fp8, const tor
   auto qflat = torch::empty({num_batch, num_head_q, max_num_q_blocks, qflat_inner},
                             q_fp8.options().dtype(torch::kBFloat16));
 
-  stem_oam_prep_varlen_q_dim128_async(
-      qflat.data_ptr(), q_fp8.const_data_ptr(), qscale.const_data_ptr(),
-      q_seq_lens.const_data_ptr(), cu_seqlens_q.const_data_ptr(), num_batch, num_head_q, ldQ,
-      static_cast<int>(stem_block_size), static_cast<int>(stem_stride), max_num_q_blocks, stream);
+  HPC_ARCH_DISPATCH("stem_oam_prep_varlen_q", 90,
+                    stem_oam_prep_varlen_q_dim128_async(
+                        qflat.data_ptr(), q_fp8.const_data_ptr(), qscale.const_data_ptr(),
+                        q_seq_lens.const_data_ptr(), cu_seqlens_q.const_data_ptr(), num_batch,
+                        num_head_q, ldQ, static_cast<int>(stem_block_size),
+                        static_cast<int>(stem_stride), max_num_q_blocks, stream));
 
   return qflat;
 }
@@ -202,11 +209,13 @@ torch::Tensor stem_oam_gemm_entry(const torch::Tensor &qflat, const torch::Tenso
       torch::full({num_batch, num_head_q, logits_qb, logits_kb},
                   -std::numeric_limits<float>::infinity(), qflat.options().dtype(torch::kBFloat16));
 
-  stem_oam_gemm_dim128_async(
-      block_logits.data_ptr(), qflat.const_data_ptr(), kflat.const_data_ptr(),
-      vbias.const_data_ptr(), q_seq_lens.const_data_ptr(), kv_seq_lens.const_data_ptr(), num_batch,
-      num_head_q, num_head_kv, max_num_qb, max_num_kb, static_cast<int>(stem_block_size),
-      static_cast<int>(stem_stride), causal, stream);
+  HPC_ARCH_DISPATCH(
+      "stem_oam_gemm", 90,
+      stem_oam_gemm_dim128_async(
+          block_logits.data_ptr(), qflat.const_data_ptr(), kflat.const_data_ptr(),
+          vbias.const_data_ptr(), q_seq_lens.const_data_ptr(), kv_seq_lens.const_data_ptr(),
+          num_batch, num_head_q, num_head_kv, max_num_qb, max_num_kb,
+          static_cast<int>(stem_block_size), static_cast<int>(stem_stride), causal, stream));
 
   // Slice back to real shape. No-op when no padding; cheap copy for short sequences.
   if (logits_qb == max_num_qb && logits_kb == max_num_kb) {
@@ -255,16 +264,22 @@ torch::Tensor stem_tpd_entry(const torch::Tensor &block_logits, const torch::Ten
   auto mask = torch::zeros({num_batch, num_heads, max_Qb, max_Kb},
                            block_logits.options().dtype(torch::kUInt8));
 
-  stem_tpd_async(
-      mask.data_ptr(), block_logits.const_data_ptr(), q_seq_lens.const_data_ptr(),
-      kv_seq_lens.const_data_ptr(), num_prompt_tokens.const_data_ptr(), num_batch, num_heads,
-      max_Qb, max_Kb, static_cast<int>(block_size), static_cast<float>(alpha),
-      static_cast<int>(initial_blocks), static_cast<int>(window_size),
-      static_cast<float>(k_block_num_rate_medium), static_cast<int>(k_block_num_bias_medium),
-      static_cast<float>(k_block_num_rate_large), static_cast<int>(k_block_num_bias_large), stream);
+  HPC_ARCH_DISPATCH(
+      "stem_tpd", 90,
+      stem_tpd_async(mask.data_ptr(), block_logits.const_data_ptr(), q_seq_lens.const_data_ptr(),
+                     kv_seq_lens.const_data_ptr(), num_prompt_tokens.const_data_ptr(), num_batch,
+                     num_heads, max_Qb, max_Kb, static_cast<int>(block_size),
+                     static_cast<float>(alpha), static_cast<int>(initial_blocks),
+                     static_cast<int>(window_size), static_cast<float>(k_block_num_rate_medium),
+                     static_cast<int>(k_block_num_bias_medium),
+                     static_cast<float>(k_block_num_rate_large),
+                     static_cast<int>(k_block_num_bias_large), stream));
 
   return mask;
 }
+
+}  // namespace stem
+}  // namespace hpc
 
 TORCH_LIBRARY_FRAGMENT(hpc, m) {
   m.def(
@@ -293,6 +308,3 @@ TORCH_LIBRARY_FRAGMENT(hpc, m) {
       "float k_block_num_rate_large, int k_block_num_bias_large) -> Tensor");
   m.impl("stem_tpd", torch::kCUDA, &hpc::stem::stem_tpd_entry);
 }
-
-}  // namespace stem
-}  // namespace hpc

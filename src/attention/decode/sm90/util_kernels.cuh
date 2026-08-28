@@ -13,6 +13,7 @@
 #include "cutlass/arch/reg_reconfig.h"
 #include "src/utils/tma.cuh"
 #include "src/utils/utils.cuh"
+#include "src/utils/utils.h"
 
 namespace hpc {
 namespace attention {

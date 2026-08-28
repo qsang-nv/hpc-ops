@@ -8,6 +8,7 @@
 #include <torch/library.h>
 
 #include "src/sampler/sampler.h"
+#include "src/utils/utils.h"
 
 namespace hpc {
 namespace sampler {

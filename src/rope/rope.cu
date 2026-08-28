@@ -10,6 +10,7 @@
 #include "cutlass/fast_math.h"
 #include "src/rope/rope.h"
 #include "src/utils/utils.cuh"
+#include "src/utils/utils.h"
 
 namespace hpc {
 namespace rope {

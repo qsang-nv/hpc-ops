@@ -4,7 +4,7 @@
     HPC-Ops
   </h2>
   <p>
-    <img alt="CUDA" src="https://img.shields.io/badge/CUDA-12.8%2B-76B900">
+    <img alt="CUDA" src="https://img.shields.io/badge/CUDA-12.9%2B-76B900">
     <img alt="GPU" src="https://img.shields.io/badge/GPU-H20%20%7C%20SM90-76B900">
     <img alt="Python" src="https://img.shields.io/badge/Python-3.8%2B-3776AB">
     <img alt="License" src="https://img.shields.io/badge/License-MIT-blue">
@@ -187,7 +187,8 @@ softmax statistics to reduce vocabulary reads and fixed launch overhead.
 - NVIDIA SM90 architecture GPU
 - Python 3.8 or higher
 - Compilers with C++17 support
-- CUDA Toolkit: CUDA 12.8 or higher
+- CUDA Toolkit: CUDA 12.9 or higher (`make wheel` covers sm103, whose
+  `compute_103a` gencode requires 12.9; `make sm90` builds with 12.8)
 
 *You can set up the environment by installing the modules listed in requirements-dev.txt.*
 
@@ -197,10 +198,17 @@ softmax statistics to reduce vocabulary reads and fixed launch overhead.
 git clone https://github.com/Tencent/hpc-ops.git
 cd hpc-ops
 
-# build packages
+# build a wheel covering every supported GPU architecture
 make wheel
 python3 -m pip install dist/*.whl
 ```
+
+A wheel carries one extension module per SM architecture it was built for, and
+`import hpc` loads the one matching the device. `make wheel` covers every
+supported architecture; `make sm90` builds a wheel for sm90 only, and
+`SM_ARCH=90,103 make wheel` builds one usable on both. Wheels that cover only
+part of the supported architectures say so in their version, e.g.
+`0.0.1.dev0+g1234567.sm90`.
 
 ### Basic Usage
 

@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "src/attention/decode/sched_task_info.h"
+#include "src/utils/utils.h"
 
 namespace hpc {
 namespace attention {

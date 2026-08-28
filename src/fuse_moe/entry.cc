@@ -7,8 +7,8 @@
 
 #include <tuple>
 
-#include "src/fuse_moe/cp_async/fuse_moe_cp_async.h"
 #include "src/fuse_moe/fuse_moe.h"
+#include "src/fuse_moe/fuse_moe_cp_async.h"
 #include "src/utils/utils.h"
 
 namespace hpc {
@@ -61,11 +61,13 @@ count_and_gather_entry(const torch::Tensor &x, const torch::Tensor &topk_ids,
   auto *gate_up_tmas_ptr = gate_up_tmas.mutable_data_ptr();
   auto *dowm_tmas_ptr = dowm_tmas.mutable_data_ptr();
 
-  count_and_gather_async(gate_up_input_ptr, gate_up_output_ptr, down_input_ptr, down_output_ptr,
-                         x_ptr, topk_ids_ptr, topk_pos_ptr, seqlens_ptr, cu_seqlens_ptr,
-                         gate_up_tmas_ptr, dowm_tmas_ptr, tiles_ptr, cu_tiles_ptr, nullptr, nullptr,
-                         num_seq, hidden_size, intermediate_size, num_topk, num_expert, rank_ep,
-                         num_seq_per_group_avg, stream);
+  HPC_ARCH_DISPATCH(
+      "count_and_gather", 90,
+      count_and_gather_async(gate_up_input_ptr, gate_up_output_ptr, down_input_ptr, down_output_ptr,
+                             x_ptr, topk_ids_ptr, topk_pos_ptr, seqlens_ptr, cu_seqlens_ptr,
+                             gate_up_tmas_ptr, dowm_tmas_ptr, tiles_ptr, cu_tiles_ptr, nullptr,
+                             nullptr, num_seq, hidden_size, intermediate_size, num_topk, num_expert,
+                             rank_ep, num_seq_per_group_avg, stream));
 
   return std::make_tuple(gate_up_input, gate_up_output, topk_pos, seqlens, cu_seqlens, tiles,
                          cu_tiles, gate_up_tmas, dowm_tmas);
@@ -114,8 +116,9 @@ torch::Tensor reduce_entry(const torch::Tensor &x, const torch::Tensor &topk_pos
 
   auto *y_ptr = y.mutable_data_ptr();
 
-  reduce_async(y_ptr, x_ptr, topk_pos_ptr, topk_scale_ptr, shared_output_ptr, total_num_seq,
-               num_seq, hidden_size, num_topk, false, stream);
+  HPC_ARCH_DISPATCH("reduce", 90,
+                    reduce_async(y_ptr, x_ptr, topk_pos_ptr, topk_scale_ptr, shared_output_ptr,
+                                 total_num_seq, num_seq, hidden_size, num_topk, false, stream));
 
   return y;
 }
@@ -252,13 +255,15 @@ torch::Tensor fuse_moe_cp_async_entry(
   auto *tiles_ptr = tiles.mutable_data_ptr();
   auto *cu_tiles_ptr = cu_tiles.mutable_data_ptr();
 
-  fuse_moe_cp_async::fuse_moe_cp_async(
-      y_ptr, x_ptr, gate_up_output_ptr, gate_up_weight_ptr, gate_up_scale_ptr,
-      act_and_mul_scale_ptr, down_input_ptr, down_output_ptr, down_weight_ptr, down_scale_ptr,
-      topk_ids_ptr, topk_scale_ptr, topk_pos_ptr, row_indices_ptr, seqlens_ptr, cu_seqlens_ptr,
-      tiles_ptr, cu_tiles_ptr, gateup_task_map_ptr, down_task_map_ptr, gateup_task_map_len,
-      down_task_map_len, shared_output_ptr, num_seq, hidden_size, intermediate_size, num_topk,
-      num_expert_total, num_expert_local, static_cast<int>(rank_ep), use_bf16_mul, stream);
+  HPC_ARCH_DISPATCH(
+      "fuse_moe_cp_async", 90,
+      fuse_moe_cp_async::fuse_moe_cp_async(
+          y_ptr, x_ptr, gate_up_output_ptr, gate_up_weight_ptr, gate_up_scale_ptr,
+          act_and_mul_scale_ptr, down_input_ptr, down_output_ptr, down_weight_ptr, down_scale_ptr,
+          topk_ids_ptr, topk_scale_ptr, topk_pos_ptr, row_indices_ptr, seqlens_ptr, cu_seqlens_ptr,
+          tiles_ptr, cu_tiles_ptr, gateup_task_map_ptr, down_task_map_ptr, gateup_task_map_len,
+          down_task_map_len, shared_output_ptr, num_seq, hidden_size, intermediate_size, num_topk,
+          num_expert_total, num_expert_local, static_cast<int>(rank_ep), use_bf16_mul, stream));
 
   if (output.has_value()) {
     return output.value();
@@ -428,13 +433,15 @@ torch::Tensor fuse_moe_entry(const torch::Tensor &x, const torch::Tensor &gate_u
   auto *down_output_ptr = down_output.mutable_data_ptr();
   auto *down_tmas_ptr = down_tmas.mutable_data_ptr();
 
-  fuse_moe_async(y_ptr, x_ptr, gate_up_input_ptr, gate_up_output_ptr, gate_up_weight_ptr,
-                 gate_up_scale_ptr, gate_up_tmas_ptr, act_and_mul_scale_ptr, down_input_ptr,
-                 down_output_ptr, down_weight_ptr, down_scale_ptr, down_tmas_ptr, topk_ids_ptr,
-                 topk_scale_ptr, topk_pos_ptr, seqlens_ptr, cu_seqlens_ptr, tiles_ptr, cu_tiles_ptr,
-                 shared_output_ptr, gateup_task_map_ptr, down_task_map_ptr, num_gateup_waves,
-                 num_down_waves, num_seq, hidden_size, intermediate_size, num_topk,
-                 num_expert_total, num_expert, rank_ep, use_bf16_mul, stream);
+  HPC_ARCH_DISPATCH(
+      "fuse_moe", 90,
+      fuse_moe_async(y_ptr, x_ptr, gate_up_input_ptr, gate_up_output_ptr, gate_up_weight_ptr,
+                     gate_up_scale_ptr, gate_up_tmas_ptr, act_and_mul_scale_ptr, down_input_ptr,
+                     down_output_ptr, down_weight_ptr, down_scale_ptr, down_tmas_ptr, topk_ids_ptr,
+                     topk_scale_ptr, topk_pos_ptr, seqlens_ptr, cu_seqlens_ptr, tiles_ptr,
+                     cu_tiles_ptr, shared_output_ptr, gateup_task_map_ptr, down_task_map_ptr,
+                     num_gateup_waves, num_down_waves, num_seq, hidden_size, intermediate_size,
+                     num_topk, num_expert_total, num_expert, rank_ep, use_bf16_mul, stream));
   if (output.has_value()) {
     return output.value();
   } else {
@@ -622,15 +629,18 @@ torch::Tensor fuse_moe_blockwise_entry(
   auto *down_output_ptr = down_output.mutable_data_ptr();
   auto *down_tmas_ptr = down_tmas.mutable_data_ptr();
 
-  fuse_moe_blockwise_async(
-      y_ptr, x_ptr, x_scale_ptr, gate_up_input_ptr, gate_up_input_scale_ptr, gate_up_output_ptr,
-      gate_up_weight_ptr, gate_up_weight_scale_ptr, gate_up_tmas_ptr, down_input_ptr,
-      down_input_scale_ptr, down_output_ptr, down_weight_ptr, down_weight_scale_ptr, down_tmas_ptr,
-      topk_ids_ptr, topk_scale_ptr, topk_pos_ptr, num_tokens_per_group_ptr,
-      cu_num_tokens_per_group_ptr, tiles_ptr, cu_tiles_ptr, shared_output_ptr, gateup_task_map_ptr,
-      down_task_map_ptr, num_gateup_waves, num_down_waves, num_tokens, num_padded_tokens,
-      hidden_size, intermediate_size, num_topk, num_expert_total, num_experts,
-      gate_up_weight_scale_lastdim_pad4, down_weight_scale_lastdim_pad4, rank_ep, stream);
+  HPC_ARCH_DISPATCH(
+      "fuse_moe_blockwise", 90,
+      fuse_moe_blockwise_async(
+          y_ptr, x_ptr, x_scale_ptr, gate_up_input_ptr, gate_up_input_scale_ptr, gate_up_output_ptr,
+          gate_up_weight_ptr, gate_up_weight_scale_ptr, gate_up_tmas_ptr, down_input_ptr,
+          down_input_scale_ptr, down_output_ptr, down_weight_ptr, down_weight_scale_ptr,
+          down_tmas_ptr, topk_ids_ptr, topk_scale_ptr, topk_pos_ptr, num_tokens_per_group_ptr,
+          cu_num_tokens_per_group_ptr, tiles_ptr, cu_tiles_ptr, shared_output_ptr,
+          gateup_task_map_ptr, down_task_map_ptr, num_gateup_waves, num_down_waves, num_tokens,
+          num_padded_tokens, hidden_size, intermediate_size, num_topk, num_expert_total,
+          num_experts, gate_up_weight_scale_lastdim_pad4, down_weight_scale_lastdim_pad4, rank_ep,
+          stream));
   if (output.has_value()) {
     return output.value();
   } else {

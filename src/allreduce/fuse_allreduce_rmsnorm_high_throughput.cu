@@ -7,6 +7,7 @@
 
 #include "src/allreduce/fuse_allreduce_rmsnorm_high_throughput.h"
 #include "src/utils/utils.cuh"
+#include "src/utils/utils.h"
 
 namespace hpc {
 namespace allreduce {

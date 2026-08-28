@@ -9,6 +9,7 @@
 #include <tuple>
 
 #include "src/rope/rope.h"
+#include "src/utils/utils.h"
 
 namespace hpc {
 namespace rope {

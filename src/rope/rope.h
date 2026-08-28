@@ -10,6 +10,8 @@
 
 #include <vector>
 
+#include "src/utils/utils.h"
+
 namespace hpc {
 namespace rope {
 

@@ -26,6 +26,7 @@
 #include "src/sampler/sampler.h"
 #include "src/sampler/sampler_rng.cuh"
 #include "src/utils/utils.cuh"
+#include "src/utils/utils.h"
 
 namespace hpc {
 namespace sampler {

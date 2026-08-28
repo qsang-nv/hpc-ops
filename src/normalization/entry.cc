@@ -1,4 +1,4 @@
-// Copyright 2025 hpc-ops authors
+// Copyright (C) 2026 Tencent.
 
 #include <ATen/cuda/CUDAContext.h>
 #include <cuda_bf16.h>
@@ -13,6 +13,7 @@
 
 #include "cutlass/float8.h"
 #include "src/normalization/fused_rmsnorm_with_scale.h"
+#include "src/utils/utils.h"
 
 namespace hpc {
 namespace normalization {

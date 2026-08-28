@@ -8,8 +8,9 @@
 
 #include "cute/tensor.hpp"
 #include "src/attention/decode/sm90/dynamic/smallm_fp8_qkpertoken_perhead_vperhead_dim128_dynamic_splitk_kernels.cuh"
-#include "src/attention/decode/smallm_dim128.h"
-#include "src/attention/decode/splitk_combine_kernels.cuh"
+#include "src/attention/decode/sm90/smallm_dim128.h"
+#include "src/attention/decode/sm90/splitk_combine_kernels.cuh"
+#include "src/utils/utils.h"
 
 namespace hpc {
 namespace attention {
