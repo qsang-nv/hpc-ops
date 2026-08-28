@@ -150,6 +150,42 @@ torch::Tensor gemm_bf16xfp32_entry(const torch::Tensor &x, const torch::Tensor &
   return y;
 }
 
+torch::Tensor gated_mla_gemm_entry(const torch::Tensor &x, const torch::Tensor &weight,
+                                   const torch::Tensor &atten_out) {
+  auto stream = at::cuda::getCurrentCUDAStream(x.get_device());
+  TORCH_CHECK(x.is_contiguous(), "x tensor must be contiguous");
+  TORCH_CHECK(weight.is_contiguous(), "weight tensor must be contiguous");
+  TORCH_CHECK(atten_out.is_contiguous(), "atten_out tensor must be contiguous");
+  TORCH_CHECK(x.dtype() == torch::kBFloat16, "x dtype must be bfloat16");
+  TORCH_CHECK(weight.dtype() == torch::kBFloat16, "weight dtype must be bfloat16");
+  TORCH_CHECK(atten_out.dtype() == torch::kBFloat16, "atten_out dtype must be bfloat16");
+  TORCH_CHECK(x.size(1) == weight.size(1), "x and weight must share the same k");
+  TORCH_CHECK(x.size(0) == atten_out.size(0), "x and atten_out must share the same m");
+  TORCH_CHECK(weight.size(0) == atten_out.size(1), "weight and atten_out must shared the same n");
+  TORCH_CHECK(weight.size(0) % 256 == 0, "weight.size(0) (n) must be a multiple of 256");
+
+  int m = x.size(0);
+  int k = x.size(1);
+  int n = weight.size(0);
+
+  auto options = x.options();
+  torch::Tensor y = torch::empty({m, n}, options.dtype(torch::kBFloat16));
+
+  const auto *x_ptr = x.const_data_ptr();
+  const auto *weight_ptr = weight.const_data_ptr();
+  const auto *atten_out_ptr = atten_out.const_data_ptr();
+  auto *y_ptr = y.mutable_data_ptr();
+
+  bool running = false;
+  HPC_ARCH_DISPATCH(
+      "gated_mla_gemm", 100,
+      running = gated_mla_gemm_async(y_ptr, x_ptr, weight_ptr, atten_out_ptr, m, n, k, stream), 103,
+      running = gated_mla_gemm_async(y_ptr, x_ptr, weight_ptr, atten_out_ptr, m, n, k, stream));
+  TORCH_CHECK(running, "gated_mla_gemm_async launch failed!");
+
+  return y;
+}
+
 }  // namespace gemm
 }  // namespace hpc
 
@@ -158,4 +194,7 @@ TORCH_LIBRARY_FRAGMENT(hpc, m) {
       "gemm_bf16xfp32(Tensor x, Tensor w_high, Tensor w_low, "
       "float scale, bool use_fp32_output, bool use_splitk, Tensor? split_flag) -> (Tensor)");
   m.impl("gemm_bf16xfp32", torch::kCUDA, &hpc::gemm::gemm_bf16xfp32_entry);
+
+  m.def("gated_mla_gemm(Tensor x, Tensor w, Tensor x2) -> Tensor");
+  m.impl("gated_mla_gemm", torch::kCUDA, &hpc::gemm::gated_mla_gemm_entry);
 }

@@ -16,6 +16,9 @@ bool gemm_bf16xfp32_async(void *y_ptr, void *splitk_y_ptr, void *split_flag_ptr,
                           float scale, bool use_fp32_output, int splitk, int kTileM, int wgn,
                           cudaStream_t stream);
 
+bool gated_mla_gemm_async(void *y_ptr, const void *x_ptr, const void *w_ptr, const void *x2_ptr,
+                          int m, int n, int k, cudaStream_t stream);
+
 }  // namespace gemm
 }  // namespace hpc
 

@@ -615,6 +615,89 @@ __device__ __forceinline__ void fence_async_global() {
   asm volatile("fence.proxy.async.global;\n");
 }
 
+__device__ __forceinline__ void set_barrier_transaction_bytes_cluster(uint64_t &smem_bar,
+                                                                      uint32_t transaction_bytes,
+                                                                      uint32_t cta_id = 0) {
+  uint32_t smem_addr = cute::cast_smem_ptr_to_uint(&smem_bar);
+  asm volatile(
+      "{\n\t"
+      ".reg .b32 remAddr32;\n\t"
+      "mapa.shared::cluster.u32  remAddr32, %0, %1;\n\t"
+      "mbarrier.arrive.expect_tx.shared::cluster.b64  _, [remAddr32], %2;\n\t"
+      "}"
+      :
+      : "r"(smem_addr), "r"(cta_id), "r"(transaction_bytes));
+}
+
+__device__ __forceinline__ void arrive_cluster_barrier(uint64_t &smem_bar, uint32_t cta_id = 0) {
+  uint32_t smem_addr = cute::cast_smem_ptr_to_uint(&smem_bar);
+  asm volatile(
+      "{\n\t"
+      ".reg .b32 remAddr32;\n\t"
+      "mapa.shared::cluster.u32  remAddr32, %0, %1;\n\t"
+      "mbarrier.arrive.shared::cluster.b64  _, [remAddr32];\n\t"
+      "}"
+      :
+      : "r"(smem_addr), "r"(cta_id));
+}
+
+__device__ __forceinline__ void cluster_relaxed_sync() {
+  asm volatile("barrier.cluster.arrive.relaxed.aligned;\n" : :);
+  asm volatile("barrier.cluster.wait.aligned;\n" : :);
+}
+
+__device__ __forceinline__ uint32_t test_barrier(uint64_t &bar, int phase) {
+  uint32_t addr = cute::cast_smem_ptr_to_uint(&bar);
+  uint32_t ok;
+  asm volatile(
+      "{\n\t.reg .pred p;\n\t"
+      "mbarrier.test_wait.parity.shared::cta.b64 p, [%1], %2;\n\t"
+      "selp.u32 %0, 1, 0, p;\n\t"
+      "}\n"
+      : "=r"(ok)
+      : "r"(addr), "r"(phase));
+  return ok;
+}
+
+__device__ __forceinline__ void cp_async_16b(void *smem_dst, const void *gmem_src, int src_size) {
+  uint32_t smem_addr = cute::cast_smem_ptr_to_uint(smem_dst);
+  asm volatile("cp.async.cg.shared.global [%0], [%1], 16, %2;\n" ::"r"(smem_addr), "l"(gmem_src),
+               "r"(src_size));
+}
+
+__device__ __forceinline__ void find_next_block(uint4 *clc_response, uint64_t *mbar) {
+  uint32_t mbar_ptr = cute::cast_smem_ptr_to_uint(reinterpret_cast<const void *>(mbar));
+  uint32_t clc_resp_ptr = cute::cast_smem_ptr_to_uint(reinterpret_cast<const void *>(clc_response));
+  asm volatile(
+      "{\n\t"
+      "clusterlaunchcontrol.try_cancel.async.shared::cta.mbarrier::complete_tx::bytes.multicast::"
+      "cluster::all.b128 [%0], [%1];\n\t"
+      "}\n"
+      :
+      : "r"(clc_resp_ptr), "r"(mbar_ptr));
+}
+
+__device__ __forceinline__ auto get_next_block(uint4 *clc_response) {
+  uint32_t clc_resp_ptr = cute::cast_smem_ptr_to_uint(reinterpret_cast<const void *>(clc_response));
+  uint32_t iblock;
+  uint32_t valid;
+  asm volatile(
+      "{\n"
+      ".reg .pred p1;\n\t"
+      ".reg .b128 clc_result;\n\t"
+      "ld.shared.b128 clc_result, [%2];\n\t"
+      "clusterlaunchcontrol.query_cancel.is_canceled.pred.b128 p1, clc_result;\n\t"
+      "selp.u32 %1, 1, 0, p1;\n\t"
+      "@p1 clusterlaunchcontrol.query_cancel.get_first_ctaid::x.b32.b128 %0, clc_result;\n\t"
+      "fence.proxy.async.shared::cta;\n\t"
+      "}\n"
+      : "=r"(iblock), "=r"(valid)
+      : "r"(clc_resp_ptr)
+      : "memory");
+
+  return cute::make_tuple(iblock, valid);
+}
+
 }  // namespace hpc
 
 namespace cute {

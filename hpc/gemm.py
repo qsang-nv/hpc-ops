@@ -61,6 +61,34 @@ def gemm_bf16xfp32(
     )
 
 
+def gated_mla_gemm(
+    x: Tensor,
+    weight: Tensor,
+    atten_output: Tensor,
+):
+    """Performs a gated GEMM: y = atten_output * sigmoid(x @ weight.T). SM100 only.
+
+    Args:
+        x: Input activation tensor
+            Shape: [m, k]
+            Dtype: bfloat16
+        weight: Weight tensor
+            Shape: [n, k]
+            Dtype: bfloat16
+        atten_output: Attention output tensor, elementwise-multiplied with sigmoid(x @ weight.T)
+            Shape: [m, n]
+            Dtype: bfloat16
+    Returns:
+        Tensor: Output tensor after the gated GEMM
+            Shape: [m, n]
+            Dtype: bfloat16
+
+    Note:
+        n (weight.shape[0]) must be a multiple of 256.
+    """
+    return torch.ops.hpc.gated_mla_gemm(x, weight, atten_output)
+
+
 @torch.library.register_fake("hpc::gemm_bf16xfp32")
 def gemm_bf16xfp32_fake(
     a: Tensor,
@@ -75,3 +103,13 @@ def gemm_bf16xfp32_fake(
         return torch.empty((a.shape[0], b_high.shape[0]), dtype=torch.float32, device=a.device)
     else:
         return torch.empty((a.shape[0], b_high.shape[0]), dtype=a.dtype, device=a.device)
+
+
+@torch.library.register_fake("hpc::gated_mla_gemm")
+def gated_mla_gemm_fake(
+    x: Tensor,
+    weight: Tensor,
+    atten_output: Tensor,
+):
+    m, n = x.shape[0], weight.shape[0]
+    return torch.empty((m, n), dtype=torch.bfloat16, device=x.device)
