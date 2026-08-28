@@ -21,6 +21,7 @@
 #include <atomic>
 
 #include "src/utils/utils.cuh"
+#include "src/utils/utils.h"
 
 namespace hpc {
 namespace sampler {

@@ -22,6 +22,7 @@ static const std::string built_json() {
   oss << "{" << "\n";
   oss << " \"version\": " << "\"" << HPC_VERSION_STR << "\",\n";
   oss << " \"git-hash\": " << "\"" << HPC_GIT_HASH_STR << "\",\n";
+  oss << " \"sm-arch\": " << "\"sm" << HPC_TARGET_ARCH << "\",\n";
   oss << " \"g++\": " << "\"g++-" << __GNUC__ << "." << __GNUC_MINOR__ << "." << __GNUC_PATCHLEVEL__
       << "\",\n";
   oss << " \"nvcc\": " << "\"nvcc-" << __CUDACC_VER_MAJOR__ << "." << __CUDACC_VER_MINOR__ << "."

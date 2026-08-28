@@ -5,6 +5,8 @@
 
 #include <cuda_runtime_api.h>
 
+#include "src/utils/utils.h"
+
 namespace hpc {
 namespace allreduce {
 

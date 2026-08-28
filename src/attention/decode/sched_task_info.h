@@ -10,6 +10,8 @@
 #include <utility>
 #include <vector>
 
+#include "src/utils/utils.h"
+
 namespace hpc {
 namespace attention {
 namespace decode {

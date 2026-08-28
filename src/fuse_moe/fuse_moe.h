@@ -8,6 +8,7 @@
 
 #include "src/activation/activation.h"
 #include "src/group_gemm/group_gemm.h"
+#include "src/utils/utils.h"
 
 namespace hpc {
 namespace fuse_moe {

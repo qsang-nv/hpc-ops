@@ -1,4 +1,4 @@
-// Copyright 2025 hpc-ops authors
+// Copyright (C) 2026 Tencent.
 
 #include <ATen/cuda/CUDAContext.h>
 #include <cuda_runtime_api.h>
@@ -9,8 +9,8 @@
 #include "src/allreduce/fuse_allreduce_rmsnorm_low_latency.h"
 
 namespace hpc {
-
 namespace allreduce {
+
 void fuse_allreduce_rmsnorm_high_throughput_entry(
     const torch::Tensor &input,        // [..., hidden_size]
     const torch::Tensor &mc_input,     // [..., hidden_size] multimem_ptr
@@ -185,12 +185,12 @@ void fuse_allreduce_rmsnorm_low_latency_entry(
   params.stream = stream;
 
   cudaError_t status = fuse_allreduce_rmsnorm_low_latency_async<c_type>(params);
+
   TORCH_CHECK(status == cudaSuccess,
               "fuse_allreduce_rmsnorm_low_latency failed with error: ", cudaGetErrorString(status));
 }
 
 }  // namespace allreduce
-
 }  // namespace hpc
 
 TORCH_LIBRARY_FRAGMENT(hpc, m) {

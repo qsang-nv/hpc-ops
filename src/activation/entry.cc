@@ -187,15 +187,17 @@ std::tuple<torch::Tensor, torch::Tensor> scaled_fp8_quant_entry(
   auto *scale_ptr = scale_tensor.mutable_data_ptr<float>();
   const int64_t numel = input.numel();
 
+  // The async is overloaded; the generic lambda picks the overload at compile time.
+  auto launch = [&](const auto *typed_input) {
+    scaled_fp8_quant_async(output_ptr, typed_input, scale_ptr, numel, stream);
+  };
+
   if (input.scalar_type() == torch::kBFloat16) {
-    const auto *input_ptr = reinterpret_cast<const __nv_bfloat16 *>(input.const_data_ptr());
-    scaled_fp8_quant_async(output_ptr, input_ptr, scale_ptr, numel, stream);
+    launch(reinterpret_cast<const __nv_bfloat16 *>(input.const_data_ptr()));
   } else if (input.scalar_type() == torch::kFloat16) {
-    const auto *input_ptr = reinterpret_cast<const __half *>(input.const_data_ptr());
-    scaled_fp8_quant_async(output_ptr, input_ptr, scale_ptr, numel, stream);
+    launch(reinterpret_cast<const __half *>(input.const_data_ptr()));
   } else {
-    const auto *input_ptr = input.const_data_ptr<float>();
-    scaled_fp8_quant_async(output_ptr, input_ptr, scale_ptr, numel, stream);
+    launch(input.const_data_ptr<float>());
   }
 
   return std::make_tuple(output_tensor, scale_tensor);

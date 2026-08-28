@@ -6,6 +6,8 @@
 #include <cuda_runtime_api.h>
 #include <stdint.h>
 
+#include "src/utils/utils.h"
+
 namespace hpc {
 namespace group_gemm {
 

@@ -5,6 +5,7 @@
 
 #include "src/normalization/fused_rmsnorm_with_scale.h"
 #include "src/utils/utils.cuh"
+#include "src/utils/utils.h"
 
 namespace hpc {
 namespace normalization {
